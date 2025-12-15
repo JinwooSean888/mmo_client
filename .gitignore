@@ -1,0 +1,35 @@
+# Unity generated
+[Ll]ibrary/
+[Tt]emp/
+[Ll]ogs/
+[Oo]bj/
+[Bb]uild/
+[Bb]uilds/
+[Uu]ser[Ss]ettings/
+
+# VS / Rider
+.vs/
+.idea/
+*.csproj
+*.sln
+*.user
+*.userprefs
+*.pidb
+*.booproj
+*.svd
+*.VC.db
+*.VC.VC.opendb
+
+# Assets: scripts only
+Assets/**
+!Assets/Scripts/
+!Assets/Scripts/**
+!Assets/Scripts/**/*.meta
+!Assets/**.asmdef
+!Assets/**.asmdef.meta
+
+# Minimal project files
+!Packages/
+!Packages/**
+!ProjectSettings/
+!ProjectSettings/**
