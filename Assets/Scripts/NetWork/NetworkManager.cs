@@ -111,6 +111,7 @@ public class NetworkManager : MonoBehaviour
                 {
                     var enterAck = env.Pkt<EnterFieldAck>().Value;
                     AoiWorld.MyPlayerId = enterAck.PlayerId;
+                    AoiWorld.ForceAllMonstersOff("enterfield");
                     Debug.Log($"[EnterFieldAck] MyPlayerId = {AoiWorld.MyPlayerId}");
 
                     _inField = true;            // ★ 여기서 ON

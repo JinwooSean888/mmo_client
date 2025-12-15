@@ -25,7 +25,7 @@ public static class AoiWorld
     static GameObject GetPlayerTemplate()
     {
         if (_playerTemplate == null)
-            _playerTemplate = Resources.Load<GameObject>("Player/PaladinTemplate");
+            _playerTemplate = Resources.Load<GameObject>("Player/SingleTwoHandSwordTemplate_1");
         return _playerTemplate;
     }
 
@@ -83,38 +83,94 @@ public static class AoiWorld
             _lastMyPos = pos;
         }
     }
+    public static void ForceAllMonstersOff(string reason)
+    {
+        foreach (var kv in monsters)
+        {
+            if (kv.Value != null && kv.Value.activeSelf)
+            {
+                kv.Value.SetActive(false);
+                Debug.Log($"[MONSTER][FORCE OFF] {kv.Value.name} reason={reason}");
+            }
+        }
+    }
+    static void SetMonsterActive(GameObject go, bool active, ulong id, string reason)
+    {
+        if (go == null) return;
+
+        if (go.activeSelf == active)
+        {
+            // 이미 같은 상태인데도 호출됐다 = 누가 계속 만지고 있다
+            if (active)
+            {
+                Debug.Log($"[MONSTER][ALREADY ON] id={id} name={go.name} reason={reason}\n{System.Environment.StackTrace}");
+            }
+            return;
+        }
+
+        go.SetActive(active);
+
+        if (active)
+        {
+            Debug.Log($"[MONSTER][ON] id={id} name={go.name} reason={reason}\n{System.Environment.StackTrace}");
+        }
+        else
+        {
+            Debug.Log($"[MONSTER][OFF] id={id} name={go.name} reason={reason}");
+        }
+    }
 
     // ================== Enter ==================
     static void OnEnter(ulong id, Vector3 pos, bool isMonster, string prefabName)
     {
         if (isMonster)
         {
+            // prefabName은 항상 캐시
             if (!string.IsNullOrEmpty(prefabName))
                 monsterPrefabById[id] = prefabName;
 
-            // 재사용: 있고, 살아있으면 켜서 워프
-            if (monsters.TryGetValue(id, out var m) && m != null)
-            {
-                m.SetActive(true);
-                WarpMonster(m, pendingMonsterPos.TryGetValue(id, out var p) ? p : pos);
-                pendingMonsterPos.Remove(id);
-                return;
-            }
-            Debug.Log($"[AOI][NEW MONSTER] id={id} prefab={prefabName} " +$"hasKey={monsters.ContainsKey(id)}");
-            // key는 있는데 값이 null(=Destroy된 상태)일 수 있으니 정리
-            monsters.Remove(id);
+            // pending 좌표 우선
+            Vector3 spawnPos =
+                pendingMonsterPos.TryGetValue(id, out var pending) ? pending : pos;
 
-            var prefab = GetMonsterPrefab(prefabName);
+            // 이미 있으면: AOI 안으로 들어온 것이므로 켜기만
+            if (monsters.TryGetValue(id, out var m))
+            {
+                if (m != null)
+                {
+                    if (!m.activeSelf)
+                    {
+                        SetMonsterActive(m, true, id, "AOI Enter/Snapshot reuse");
+                       // m.SetActive(true);
+                    }
+
+                    WarpMonster(m, spawnPos);
+                    pendingMonsterPos.Remove(id);
+                    return;
+                }
+
+                // key는 있는데 null이면 정리
+                monsters.Remove(id);
+            }
+
+            // 새로 생성 (AOI Enter/Snapshot일 때만)
+            if (!monsterPrefabById.TryGetValue(id, out var pf))
+                return;
+
+            var prefab = GetMonsterPrefab(pf);
             if (prefab == null) return;
 
             var go = Object.Instantiate(prefab);
             go.name = $"Monster_{id}";
-            monsters[id] = go;
+            //SetMonsterActive(go, true, id, "AOI Enter/Snapshot new");
+             go.SetActive(false);
 
-            WarpMonster(go, pendingMonsterPos.TryGetValue(id, out var pp) ? pp : pos);
+            monsters[id] = go;
+            WarpMonster(go, spawnPos);
             pendingMonsterPos.Remove(id);
             return;
         }
+
 
         // ---------- 플레이어 ----------
         if (players.ContainsKey(id))
@@ -164,10 +220,10 @@ public static class AoiWorld
     {
         if (isMonster)
         {
-            if (!monsters.TryGetValue(id, out var m))
+            // 🔥 AOI 밖이거나 꺼진 몬스터는 절대 이동 반영 X
+            if (!monsters.TryGetValue(id, out var m) || m == null || !m.activeSelf)
             {
-                // Enter 전에 온 Move → 좌표만 저장
-                pendingMonsterPos[id] = pos;
+                pendingMonsterPos[id] = pos; // 좌표만 저장
                 return;
             }
 
@@ -175,7 +231,7 @@ public static class AoiWorld
             return;
         }
 
-        if (players.TryGetValue(id, out var p))
+        if (players.TryGetValue(id, out var p) && p != null)
             p.GetComponent<NetworkSmooth>()?.SetServerPosition(pos);
     }
 
@@ -185,9 +241,9 @@ public static class AoiWorld
         if (isMonster)
         {
             if (monsters.TryGetValue(id, out var m) && m != null)
-            {
-                m.SetActive(false);
-            }
+                SetMonsterActive(m, false, id, "AOI Leave");
+            //m.SetActive(false);
+
             // (선택) pending pos 정리하면 메모리 깔끔
             pendingMonsterPos.Remove(id);
             return;
