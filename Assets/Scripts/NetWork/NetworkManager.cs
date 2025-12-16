@@ -88,10 +88,10 @@ public class NetworkManager : MonoBehaviour
         var env = Envelope.GetRootAsEnvelope(bb);
 
         //Debug.Log("Recv Envelope type=" + env.PktType);
-
+        Debug.Log($"UIManager.Instance = {(UIManager.Instance ? "OK" : "NULL")}");
         switch (env.PktType)
         {
-            case Packet.LoginAck:
+            case Packet.LoginAck: 
                 {
                     var ack = env.Pkt<LoginAck>().Value;
                     Debug.Log($"[RECV] LoginAck ok={ack.Ok}, user={ack.UserId}");
@@ -113,7 +113,7 @@ public class NetworkManager : MonoBehaviour
                     AoiWorld.MyPlayerId = enterAck.PlayerId;
                     AoiWorld.ForceAllMonstersOff("enterfield");
                     Debug.Log($"[EnterFieldAck] MyPlayerId = {AoiWorld.MyPlayerId}");
-
+                    UIManager.Instance.HideLoginUI();
                     _inField = true;            // ★ 여기서 ON
                     break;
                 }

@@ -21,10 +21,16 @@ public class MonsterController : MonoBehaviour
     // 목표 좌표가 유효한지 여부
     public bool HasTarget;
 
+    [Header("Anim")]
+    public string speedParam = "Speed";   // Animator Float 파라미터 이름
+    public float speedScale = 1.0f;       // v(m/s) -> 애니 Speed 스케일
+    public float movingEps = 0.01f;       // 너무 작은 떨림 제거
+
+    private Animator _anim;
     void Awake()
     {
         _cc = GetComponent<CharacterController>();
-
+        _anim = GetComponentInChildren<Animator>();
         // 인스펙터에서 안 넣었으면 기본적으로 Ground 레이어를 사용
         if (groundMask.value == 0)
             groundMask = LayerMask.GetMask("Ground");
@@ -56,52 +62,47 @@ public class MonsterController : MonoBehaviour
         if (_cc == null)
         {
             transform.position = serverPos;
+            if (_anim) _anim.SetFloat(speedParam, 0f);
             return;
         }
 
         Vector3 cur = transform.position;
-
-        // 수평 이동량(XZ)만 계산
         Vector3 deltaXZ = new Vector3(serverPos.x - cur.x, 0f, serverPos.z - cur.z);
 
-        // 너무 멀면 중간 보간 의미 없고, 그냥 워프하는 게 더 안정적
+        // ★ 애니 Speed 계산 (m/s)
+        float v = deltaXZ.magnitude / Mathf.Max(dt, 0.0001f);
+        float animSpeed = (v > movingEps) ? (v * speedScale) : 0f;
+        if (_anim) _anim.SetFloat(speedParam, animSpeed);
+
         if (deltaXZ.sqrMagnitude > snapDistance * snapDistance)
         {
             WarpTo(serverPos);
+            if (_anim) _anim.SetFloat(speedParam, 0f); // 워프는 보통 0 처리
             return;
         }
 
-        // 서버 좌표 기준으로 바닥 높이를 다시 샘플링해서 목표 Y 만들기
+        // ---- 기존 y/중력 처리 그대로 ----
         float targetY = cur.y;
         if (TrySampleGroundY(serverPos, out float groundY))
             targetY = groundY + groundOffset;
 
-        // 수평은 서버 delta를 그대로 따라감 (원하면 여기서 Lerp/SmoothDamp로 더 부드럽게 가능)
         Vector3 move = deltaXZ;
-
-        // 목표 Y와 현재 Y 차이
         float dy = targetY - cur.y;
 
-        // 바닥에 붙어있으면 살짝 아래로 누르는 값(-1) 정도 주는 게 흔들림이 덜함
-        if (_cc.isGrounded)
-        {
-            _vy = -1f;
-        }
+        if (_cc.isGrounded) _vy = -1f;
         else
         {
             _vy += gravity * dt;
             if (_vy < maxFallSpeed) _vy = maxFallSpeed;
         }
 
-        // 지형이 위로 올라가는 상황(경사/턱/언덕)은 바로 맞춰주는 편이 안정적
         if (dy > 0f)
             _vy = Mathf.Max(_vy, dy / Mathf.Max(dt, 0.0001f));
 
         move.y = _vy;
-
-        // dt를 곱해서 실제 프레임 이동량으로 만든 뒤 CC로 이동
         _cc.Move(move * dt);
     }
+
 
     // 해당 위치에서 아래로 Raycast해서 바닥 높이를 얻는다
     private bool TrySampleGroundY(Vector3 pos, out float y)
@@ -122,7 +123,11 @@ public class MonsterController : MonoBehaviour
     // 서버에서 목표 좌표가 들어오는 동안은 매 프레임 따라가기
     void Update()
     {
-        if (!HasTarget) return;
+        if (!HasTarget)
+        {
+            if (_anim) _anim.SetFloat(speedParam, 0f);
+            return;
+        }
         MoveTo(TargetPos, Time.deltaTime);
     }
 }

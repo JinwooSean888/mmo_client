@@ -19,7 +19,7 @@ public static class AoiWorld
     static float _lastMoveTime;
 
     static GameObject _playerTemplate;
-    const string DefaultMonsterPrefab = "SingleTwoHandSwordTemplate";
+    const string DefaultMonsterPrefab = "SingleTwoHandSwordTemplate_1";
 
     // ================== 템플릿 ==================
     static GameObject GetPlayerTemplate()
@@ -70,6 +70,13 @@ public static class AoiWorld
         // 내 캐릭 이동 판정
         if (!isMonster && id == MyPlayerId && cmd.Type == FieldCmdType.Move)
         {
+            // 유저 움직이는지 판별 (에니메이션 실행)
+            if (players.TryGetValue(id, out var go) && go != null)
+            {
+                var pc = go.GetComponent<PlayerController>();
+                if (pc != null)
+                    pc.SetServerMoving(true);
+            }
             if (!_hasLastMyPos)
             {
                 _lastMyPos = pos;

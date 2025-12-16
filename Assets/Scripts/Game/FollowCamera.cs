@@ -4,18 +4,23 @@ using UnityEngine;
 public class QuarterViewCamera : MonoBehaviour
 {
     [Header("Target")]
-    public Transform target;                      // 현재 추적 대상 (로그인 후 LocalPlayer)
-    public string localPlayerTag = "LocalPlayer"; // 런타임 생성 LocalPlayer 태그
-    public Transform fallbackTarget;              // 로그인 전 맵을 보여줄 더미 타겟(예: CameraAnchor)
+    public Transform target;
+    public string localPlayerTag = "LocalPlayer";
+    public Transform fallbackTarget;
 
     [Header("Pivot")]
     public Vector3 targetOffset = new Vector3(0f, 1.2f, 0f);
-    public float pivotSmoothTime = 0.10f;         // 떨림 완화 핵심
-    public float teleportCutDistance = 3.0f;      // 서버 큰 보정은 스냅
+    public float pivotSmoothTime = 0.10f;
+    public float teleportCutDistance = 3.0f;
 
     [Header("Angle")]
     public float yaw = 0f;
     public float pitch = 35f;
+
+    [Header("Pitch Clamp")]
+    public float minPitch = 15f;
+    public float maxPitch = 75f;
+    public bool invertY = false;
 
     [Header("Distance")]
     public float distance = 22f;
@@ -24,14 +29,16 @@ public class QuarterViewCamera : MonoBehaviour
     public float zoomSpeed = 6f;
 
     [Header("Rotate")]
-    public float rotateSpeed = 900f;
-    public bool rotateWhileRightMouse = true;
-    public float rightMouseSpeedMul = 3.0f;       // 우클릭 가속 배수
+    public float rotateSpeed = 180f;          // (권장) 초당 각도 느낌으로 낮춤
+    public bool rotateWhileRightMouse = true; // 우클릭 중에만 회전
+    public float rightMouseSpeedMul = 1.0f;   // 우클릭 가속(원하면 2~3)
+
+    [Header("Right Mouse Lock")]
+    public bool lockCursorWhileRotating = true;
 
     [Header("Camera Smooth")]
     public float cameraSmoothTime = 0.10f;
 
-    // internal
     Vector3 _pivotPos;
     Vector3 _pivotVel;
     Vector3 _camVel;
@@ -46,7 +53,6 @@ public class QuarterViewCamera : MonoBehaviour
 
     void Start()
     {
-        // 로그인 전 맵을 보여주고 싶으니 fallbackTarget을 확보
         if (fallbackTarget == null)
         {
             var anchor = GameObject.Find("CameraAnchor");
@@ -56,70 +62,48 @@ public class QuarterViewCamera : MonoBehaviour
         if (target == null && fallbackTarget != null)
             BindTarget(fallbackTarget, resetYaw: false);
 
-        // 디버그: 시작 시점 LocalPlayer는 보통 0이 정상 (로그인 후 생성이니까)
         var locals = GameObject.FindGameObjectsWithTag(localPlayerTag);
         Debug.Log($"[Cam] Start LocalPlayer count={locals.Length}, target={(target ? target.name : "null")}, fallback={(fallbackTarget ? fallbackTarget.name : "null")}");
     }
 
-    /// <summary>
-    /// 외부(로그인 성공/플레이어 생성)에서 호출 권장.
-    /// resetYaw=false면 현재 시야(회전 각도)를 유지하면서 타겟만 교체.
-    /// </summary>
     public void BindTarget(Transform newTarget, bool resetYaw = false)
     {
         if (newTarget == null) return;
 
         target = newTarget;
 
-        // 피벗/속도 초기화(점프/떨림 최소화)
         _pivotPos = target.position + targetOffset;
         _pivotVel = Vector3.zero;
         _camVel = Vector3.zero;
 
-        if (resetYaw)
-            _inited = false; // 다음 LateUpdate에서 yaw 재계산
-        else
-            _inited = true;  // yaw 유지하고 바로 따라가게
+        _inited = !resetYaw;
 
-        // 카메라는 항상 켜 둠(로그인 전에도 맵 보여줘야 하니까)
-        if (_cam && !_cam.enabled) 
+        if (_cam && !_cam.enabled)
             _cam.enabled = true;
 
         var pc = target.GetComponent<PlayerController>();
-        if (pc != null)
-        {
-            pc.SetCamera(_cam);
-        }
+        if (pc != null) pc.SetCamera(_cam);
 
         Debug.Log($"[Cam] BindTarget => {target.name} (resetYaw={resetYaw})");
     }
 
     void LateUpdate()
     {
-        // 1) 로그인 후 LocalPlayer가 생기면 자동으로 타겟 교체
-        //    (외부에서 BindTarget 호출해주면 이 루프는 사실상 보험용)
         if (target == null || target == fallbackTarget)
         {
             var go = GameObject.FindGameObjectWithTag(localPlayerTag);
             if (go && go.transform != target)
-            {
-                // 시야 유지하면서 LocalPlayer로 스위치
                 BindTarget(go.transform, resetYaw: false);
-            }
         }
 
-        // 2) 타겟이 끝까지 없다면(Anchor도 없고 플레이어도 없음) 그냥 종료
-        if (target == null)
-            return;
+        if (target == null) return;
 
-        // Pivot 계산
         Vector3 rawPivot = target.position + targetOffset;
 
         if (!_inited)
         {
             _pivotPos = rawPivot;
 
-            // 시작 yaw: 현재 카메라 위치에서 계산 (점프 방지)
             Vector3 pivotToCam = (transform.position - _pivotPos);
             pivotToCam.y = 0f;
             if (pivotToCam.sqrMagnitude > 0.001f)
@@ -149,13 +133,35 @@ public class QuarterViewCamera : MonoBehaviour
             distance = Mathf.Clamp(distance, minDistance, maxDistance);
         }
 
-        // Rotate
-        bool rotating = !rotateWhileRightMouse || Input.GetMouseButton(1);
+        // ===== Rotate with Right Mouse Drag =====
+        bool rotating = rotateWhileRightMouse ? Input.GetMouseButton(1) : true;
+
+        // 우클릭 눌렀을 때 커서 잠금/해제 (드래그 회전 느낌 개선)
+        if (rotateWhileRightMouse && lockCursorWhileRotating)
+        {
+            if (Input.GetMouseButtonDown(1))
+            {
+                Cursor.lockState = CursorLockMode.Locked;
+                Cursor.visible = false;
+            }
+            if (Input.GetMouseButtonUp(1))
+            {
+                Cursor.lockState = CursorLockMode.None;
+                Cursor.visible = true;
+            }
+        }
+
         if (rotating)
         {
-            float mx = Input.GetAxis("Mouse X");
-            float mul = Input.GetMouseButton(1) ? rightMouseSpeedMul : 1.0f;
+            float mx = Input.GetAxisRaw("Mouse X");
+            float my = Input.GetAxisRaw("Mouse Y");
+            float mul = (rotateWhileRightMouse && Input.GetMouseButton(1)) ? rightMouseSpeedMul : 1.0f;
+
             yaw += mx * rotateSpeed * mul * Time.deltaTime;
+
+            float ySign = invertY ? 1f : -1f;          // 기본: 위로 움직이면 pitch 증가(카메라 내려다봄)
+            pitch += my * rotateSpeed * mul * ySign * Time.deltaTime;
+            pitch = Mathf.Clamp(pitch, minPitch, maxPitch);
         }
 
         // Camera placement

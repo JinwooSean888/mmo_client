@@ -19,6 +19,7 @@ public class PlayerController : MonoBehaviour
         _lastSendTime = 0f;
 
         _anim = GetComponentInChildren<Animator>(); // 자식 본에 있어도 찾도록
+        Debug.Log($"[ANIM] obj={_anim.gameObject.name}, root={_anim.transform.root.name}, controller={_anim.runtimeAnimatorController?.name}");
         _cam = Camera.main;
     }
     public void SetCamera(Camera cam)
@@ -34,31 +35,35 @@ public class PlayerController : MonoBehaviour
         _isMovingServer = moving;
         // Debug.Log($"[PAL] SetServerMoving: {moving}");
     }
+
+
     // 스킬 입력은 PlayerController 와 똑같이 LateUpdate 에서 처리
     void LateUpdate()
     {
         if (Input.GetKeyDown(KeyCode.Space))
         {
-            // 가장 가까운 몬스터 찾기 (2.0f 범위)
             var targetId = AoiWorld.FindClosestMonster(transform.position, 2.0f);
-
             if (targetId != 0 && NetworkManager.Instance != null && NetworkManager.Instance._inField)
-            {
                 NetworkManager.Instance.SendSkillAttack(targetId);
-            }
 
-            // 공격 애니메이션 트리거
             if (_anim != null)
-            {
-                // Animator에 "Attack" Trigger 파라미터 있어야 함
-                _anim.SetTrigger("Attack");
-            }
+                _anim.SetTrigger("Combo01"); // 파라미터명
         }
     }
+    bool CanMove()
+    {
+        if (_anim == null) return true;
 
+        var st = _anim.GetCurrentAnimatorStateInfo(0);
+        return st.IsTag("Locomotion");   // idle walk등 상태일 때만 이동 허용
+    }
     void Update()
     {
-
+            if (!CanMove())
+    {
+        // 콤보/공격/피격 중 → 방향키, 서버 이동 전송 전부 차단
+        return;
+    }
         float h = Input.GetAxisRaw("Horizontal");
         float v = Input.GetAxisRaw("Vertical");
 
