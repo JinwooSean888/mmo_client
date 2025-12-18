@@ -14,6 +14,7 @@ public enum Packet : byte
   LoginAck = 4,
   EnterFieldAck = 5,
   SkillCmd = 6,
+  SkillCmdAck = 7,
 };
 
 
@@ -42,6 +43,9 @@ static public class PacketVerify
         break;
       case Packet.SkillCmd:
         result = game.SkillCmdVerify.Verify(verifier, tablePos);
+        break;
+      case Packet.SkillCmdAck:
+        result = game.SkillCmdAckVerify.Verify(verifier, tablePos);
         break;
       default: result = true;
         break;

@@ -50,6 +50,12 @@ public static class AoiWorld
     // ================== 진입 ==================
     public static void ApplyFieldCmd(FieldCmd cmd)
     {
+        if (!cmd.Pos.HasValue)
+        {
+            Debug.LogWarning($"[FieldCmd] Pos is missing. type={cmd.Type}, id={cmd.EntityId}, et={cmd.EntityType}");
+            return;
+        }
+        
         ulong id = cmd.EntityId;
         bool isMonster = (cmd.EntityType == EntityType.Monster);
         Vector3 pos = ToWorldPos(cmd.Pos.Value);
@@ -89,6 +95,51 @@ public static class AoiWorld
             _lastMoveTime = d > 0.0001f ? Time.time : _lastMoveTime;
             _lastMyPos = pos;
         }
+    }
+    public static void ApplyCombatEvent(CombatEvent ev)
+    {
+        ulong targetId = ev.TargetId;
+        bool targetIsMonster = (ev.TargetType == EntityType.Monster);
+
+        int damage = ev.Damage;
+        int remainHp = ev.RemainHp;
+
+        GameObject targetGo = null;
+        if (targetIsMonster)
+            monsters.TryGetValue(targetId, out targetGo);
+        else
+            players.TryGetValue(targetId, out targetGo);
+
+        if (targetGo == null)
+        {
+            Debug.LogWarning($"[CombatEvent] target not found id={targetId} monster={targetIsMonster}");
+            return;
+        }
+
+        //// HP바 갱신 (네 스크립트 이름에 맞게 바꿔)
+        //var hpBar = targetGo.GetComponentInChildren<HpBarUI>();
+        //if (hpBar != null)
+        //    hpBar.SetHp(remainHp);
+
+        //// 피격 이펙트
+        //var hitFx = targetGo.GetComponent<HitEffect>();
+        //if (hitFx != null)
+        //    hitFx.Play();
+
+        //DamageText.Spawn(
+        //    damage,
+        //    targetGo.transform.position + Vector3.up * 2f
+        //);
+
+        if (remainHp <= 0)
+        {
+            var anim = targetGo.GetComponentInChildren<Animator>();
+            if (anim != null)
+                anim.SetTrigger("Die");
+        }
+    }
+    public static void ApplyAiState(AiStateEvent ev)
+    { 
     }
     public static void ForceAllMonstersOff(string reason)
     {
@@ -192,7 +243,7 @@ public static class AoiWorld
         var ns = inst.GetComponent<NetworkSmooth>() ?? inst.AddComponent<NetworkSmooth>();
         ns.SetServerPosition(pos);
 
-        // ✅ 여기부터 추가
+        // ✅여기부터 추가
         if (id == MyPlayerId)
         {
             // 기존 LocalPlayer 태그 정리 (중복 방지)
@@ -214,6 +265,7 @@ public static class AoiWorld
         }
         else
         {
+            inst.SetActive(false); // 비활성화
             inst.tag = "Untagged";
         }
         // ✅ 여기까지

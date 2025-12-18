@@ -27,10 +27,26 @@ public class MonsterController : MonoBehaviour
     public float movingEps = 0.01f;       // 너무 작은 떨림 제거
 
     private Animator _anim;
+
+    [Header("Rotate")]
+    public bool rotateToMoveDir = true;
+    public float rotateSpeed = 720f;     // deg/sec
+    public float rotateEps = 0.001f;     // 너무 작은 방향 변화 무시
+
+
+    [Header("MonsterState")]
+    public int Hp { get; private set; }
+    public int MaxHp { get; private set; }
+    public int Sp { get; private set; }
+    public int MaxSp { get; private set; }
+    public MonsterAIState AiState { get; private set; }
+
+    MonsterHudUI _hud;
     void Awake()
     {
         _cc = GetComponent<CharacterController>();
         _anim = GetComponentInChildren<Animator>();
+        _hud = GetComponentInChildren<MonsterHudUI>();
         // 인스펙터에서 안 넣었으면 기본적으로 Ground 레이어를 사용
         if (groundMask.value == 0)
             groundMask = LayerMask.GetMask("Ground");
@@ -69,6 +85,17 @@ public class MonsterController : MonoBehaviour
         Vector3 cur = transform.position;
         Vector3 deltaXZ = new Vector3(serverPos.x - cur.x, 0f, serverPos.z - cur.z);
 
+        // ★ 이동 방향으로 회전
+        if (rotateToMoveDir && deltaXZ.sqrMagnitude > rotateEps)
+        {
+            Quaternion targetRot = Quaternion.LookRotation(deltaXZ.normalized, Vector3.up);
+            transform.rotation = Quaternion.RotateTowards(
+                transform.rotation,
+                targetRot,
+                rotateSpeed * dt
+            );
+        }
+
         // ★ 애니 Speed 계산 (m/s)
         float v = deltaXZ.magnitude / Mathf.Max(dt, 0.0001f);
         float animSpeed = (v > movingEps) ? (v * speedScale) : 0f;
@@ -77,11 +104,10 @@ public class MonsterController : MonoBehaviour
         if (deltaXZ.sqrMagnitude > snapDistance * snapDistance)
         {
             WarpTo(serverPos);
-            if (_anim) _anim.SetFloat(speedParam, 0f); // 워프는 보통 0 처리
+            if (_anim) _anim.SetFloat(speedParam, 0f);
             return;
         }
 
-        // ---- 기존 y/중력 처리 그대로 ----
         float targetY = cur.y;
         if (TrySampleGroundY(serverPos, out float groundY))
             targetY = groundY + groundOffset;
@@ -130,4 +156,35 @@ public class MonsterController : MonoBehaviour
         }
         MoveTo(TargetPos, Time.deltaTime);
     }
+
+    // 서버에서 몬스터 상태 패킷 들어왔을 때 호출
+    public void ApplyServerState(int hp, int maxHp, int sp, int maxSp, MonsterAIState state)
+    {
+        Hp = hp;
+        MaxHp = maxHp;
+        Sp = sp;
+        MaxSp = maxSp;
+        AiState = state;
+
+        if (_hud != null)
+        {
+            _hud.SetMaxStats(MaxHp, MaxSp);
+            _hud.SetHpSp(Hp, Sp);
+            _hud.SetAIState(AiState);
+        }
+    }
+    // 상태패킷 처리
+    //void OnRecvMonsterState(S_MonsterState msg)
+    //{
+    //    // id → MonsterController 찾는 딕셔너리 있다고 가정
+    //    if (_monsters.TryGetValue(msg.Id, out var monster))
+    //    {
+    //        monster.ApplyServerState(
+    //            msg.Hp, msg.MaxHp,
+    //            msg.Sp, msg.MaxSp,
+    //            (MonsterAIState)msg.AiState
+    //        );
+    //    }
+    //}
+
 }

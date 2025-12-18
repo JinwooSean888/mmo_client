@@ -16,7 +16,6 @@ public struct FieldCmd : IFlatbufferObject
   public static void ValidateVersion() { FlatBufferConstants.FLATBUFFERS_25_9_23(); }
   public static FieldCmd GetRootAsFieldCmd(ByteBuffer _bb) { return GetRootAsFieldCmd(_bb, new FieldCmd()); }
   public static FieldCmd GetRootAsFieldCmd(ByteBuffer _bb, FieldCmd obj) { return (obj.__assign(_bb.GetInt(_bb.Position) + _bb.Position, _bb)); }
-  public static bool VerifyFieldCmd(ByteBuffer _bb) {Google.FlatBuffers.Verifier verifier = new Google.FlatBuffers.Verifier(_bb); return verifier.VerifyBuffer("", false, FieldCmdVerify.Verify); }
   public void __init(int _i, ByteBuffer _bb) { __p = new Table(_i, _bb); }
   public FieldCmd __assign(int _i, ByteBuffer _bb) { __init(_i, _bb); return this; }
 
@@ -61,8 +60,6 @@ public struct FieldCmd : IFlatbufferObject
     int o = builder.EndTable();
     return new Offset<field.FieldCmd>(o);
   }
-  public static void FinishFieldCmdBuffer(FlatBufferBuilder builder, Offset<field.FieldCmd> offset) { builder.Finish(offset.Value); }
-  public static void FinishSizePrefixedFieldCmdBuffer(FlatBufferBuilder builder, Offset<field.FieldCmd> offset) { builder.FinishSizePrefixed(offset.Value); }
 }
 
 

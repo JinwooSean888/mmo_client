@@ -9,15 +9,23 @@ public static class FieldCmdPacketBuilder
 
         var pos = Vec2.CreateVec2(fbb, x, y);
 
-        FieldCmd.StartFieldCmd(fbb);
-        FieldCmd.AddType(fbb, FieldCmdType.Enter);
-        FieldCmd.AddEntityType(fbb, EntityType.Player); // ★ 타입 명시
-        FieldCmd.AddEntityId(fbb, playerId);            // ★ entityId 사용
-        FieldCmd.AddPos(fbb, pos);
-        // dir는 클라→서버용이라 이쪽에선 안 채워도 됨 (기본값)
-        var cmd = FieldCmd.EndFieldCmd(fbb);
+        var cmd = FieldCmd.CreateFieldCmd(
+            fbb,
+            FieldCmdType.Enter,
+            EntityType.Player,
+            playerId,
+            pos,
+            default(Offset<Vec2>),
+            default(StringOffset)
+        );
 
-        fbb.Finish(cmd.Value);
+        var env = Envelope.CreateEnvelope(
+            fbb,
+            Packet.FieldCmd,
+            cmd.Value
+        );
+
+        fbb.Finish(env.Value);
         return fbb.SizedByteArray();
     }
 
@@ -25,17 +33,25 @@ public static class FieldCmdPacketBuilder
     {
         var fbb = new FlatBufferBuilder(32);
 
-        // 지금 fbs에서 pos가 필수라면 dummy라도 넣어야 함
         var pos = Vec2.CreateVec2(fbb, 0, 0);
 
-        FieldCmd.StartFieldCmd(fbb);
-        FieldCmd.AddType(fbb, FieldCmdType.Leave);
-        FieldCmd.AddEntityType(fbb, EntityType.Player); // ★ Player
-        FieldCmd.AddEntityId(fbb, playerId);            // ★ entityId
-        FieldCmd.AddPos(fbb, pos);
-        var cmd = FieldCmd.EndFieldCmd(fbb);
+        var cmd = FieldCmd.CreateFieldCmd(
+            fbb,
+            FieldCmdType.Leave,
+            EntityType.Player,
+            playerId,
+            pos,
+            default(Offset<Vec2>),
+            default(StringOffset)
+        );
 
-        fbb.Finish(cmd.Value);
+        var env = Envelope.CreateEnvelope(
+            fbb,
+            Packet.FieldCmd,
+            cmd.Value
+        );
+
+        fbb.Finish(env.Value);
         return fbb.SizedByteArray();
     }
 
@@ -43,20 +59,26 @@ public static class FieldCmdPacketBuilder
     {
         var fbb = new FlatBufferBuilder(128);
 
-        // 클라→서버 MoveInput에서는 pos는 안 쓰지만, fbs에서 필수면 dummy
         var pos = Vec2.CreateVec2(fbb, 0, 0);
         var dir = Vec2.CreateVec2(fbb, dx, dy);
 
         var cmd = FieldCmd.CreateFieldCmd(
             fbb,
-            FieldCmdType.Move,        // type
-            EntityType.Player,        // ★ entityType
-            playerId,                 // ★ entityId
-            pos,                      // pos (서버는 무시해도 됨)
-            dir                       // dir (입력 방향)
+            FieldCmdType.Move,
+            EntityType.Player,
+            playerId,
+            pos,
+            dir,
+            default(StringOffset)
         );
-        fbb.Finish(cmd.Value);
 
+        var env = Envelope.CreateEnvelope(
+            fbb,
+            Packet.FieldCmd,
+            cmd.Value
+        );
+
+        fbb.Finish(env.Value);
         return fbb.SizedByteArray();
     }
 }

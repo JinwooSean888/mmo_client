@@ -14,6 +14,7 @@ public enum MsgType : byte
   LoginAck = 4,
   EnterFieldAck = 5,
   SkillCmd = 6,
+  SkillCmdAck = 7,
 };
 
 

@@ -59,11 +59,11 @@ public class PlayerController : MonoBehaviour
     }
     void Update()
     {
-            if (!CanMove())
-    {
+       if (!CanMove())
+       {
         // 콤보/공격/피격 중 → 방향키, 서버 이동 전송 전부 차단
         return;
-    }
+        }
         float h = Input.GetAxisRaw("Horizontal");
         float v = Input.GetAxisRaw("Vertical");
 

@@ -38,7 +38,7 @@ public class NetworkManager : MonoBehaviour
         while (_client != null && _client.RecvQueue.TryDequeue(out var body))
         {
             if (_inField)
-                HandleFieldCmd(body);
+                HandleFieldEnvelope(body);
             else
                 HandleEnvelope(body);
         }
@@ -85,15 +85,18 @@ public class NetworkManager : MonoBehaviour
     private void HandleEnvelope(byte[] body)
     {
         var bb = new ByteBuffer(body);
-        var env = Envelope.GetRootAsEnvelope(bb);
+
+        // ★ game.Envelope 기준으로 파싱
+        var env = game.Envelope.GetRootAsEnvelope(bb);
 
         //Debug.Log("Recv Envelope type=" + env.PktType);
         Debug.Log($"UIManager.Instance = {(UIManager.Instance ? "OK" : "NULL")}");
+
         switch (env.PktType)
         {
-            case Packet.LoginAck: 
+            case game.Packet.LoginAck:
                 {
-                    var ack = env.Pkt<LoginAck>().Value;
+                    var ack = env.Pkt<game.LoginAck>().Value;
                     Debug.Log($"[RECV] LoginAck ok={ack.Ok}, user={ack.UserId}");
 
                     if (ack.Ok)
@@ -107,18 +110,50 @@ public class NetworkManager : MonoBehaviour
                     break;
                 }
 
-            case Packet.EnterFieldAck:      // ★ Ack 타입
+            case game.Packet.EnterFieldAck:
                 {
-                    var enterAck = env.Pkt<EnterFieldAck>().Value;
+                    var enterAck = env.Pkt<game.EnterFieldAck>().Value;
                     AoiWorld.MyPlayerId = enterAck.PlayerId;
                     AoiWorld.ForceAllMonstersOff("enterfield");
                     Debug.Log($"[EnterFieldAck] MyPlayerId = {AoiWorld.MyPlayerId}");
                     UIManager.Instance.HideLoginUI();
-                    _inField = true;            // ★ 여기서 ON
+                    _inField = true;            // 여기서 ON
+                    break;
+                }
+
+            case game.Packet.SkillCmdAck:
+                {
+                    var ack = env.Pkt<game.SkillCmdAck>().Value;
+                    Debug.Log($"[SkillCmdAck] skill={ack.Skill}, target={ack.TargetId}, ok={ack.Ok}, err={ack.Error}");
+
+                    if (!ack.Ok)
+                    {
+                        // 실패 시 에러코드에 따라 UI/로그 처리
+                        switch (ack.Error)
+                        {
+                            case game.SkillError.OutOfRange:
+                                // UIManager.Instance.ShowToast("사거리 밖입니다.");
+                                break;
+                            case game.SkillError.Cooldown:
+                                // UIManager.Instance.ShowToast("쿨타임입니다.");
+                                break;
+                            case game.SkillError.InvalidTarget:
+                                // UIManager.Instance.ShowToast("잘못된 대상입니다.");
+                                break;
+                            default:
+                                break;
+                        }
+                    }
+                    else
+                    {
+                        // 성공 시: 실제 연출은 CombatEvent 쪽에서 처리해도 되고,
+                        // 여기서는 그냥 디버그만 찍어도 됨.
+                    }
                     break;
                 }
         }
     }
+
     public void SendSkillAttack(ulong targetId)
     {
         // 필드에 들어가 있지 않으면 무시
@@ -128,18 +163,17 @@ public class NetworkManager : MonoBehaviour
         // 1) FlatBuffer 빌더 생성
         var fbb = new FlatBufferBuilder(64);
 
-        // 2) SkillCmd 본문 생성
-        var skillOffset = SkillCmd.CreateSkillCmd(
+        // 2) SkillCmd 본문 생성 (game 네임스페이스 명시)
+        var skillOffset = game.SkillCmd.CreateSkillCmd(
             fbb,
-            SkillType.NormalAttack,   // 지금은 노멀 공격만
-            targetId                  // 타겟 몬스터/플레이어 ID
+            game.SkillType.NormalAttack,   // 지금은 노멀 공격만
+            targetId                       // 타겟 몬스터/플레이어 ID
         );
 
-        // 3) Envelope 로 포장
-        //    Packet enum에 SkillCmd 가 추가되어 있어야 함
-        var envOffset = Envelope.CreateEnvelope(
+        // 3) Envelope 로 포장 (game.Envelope / game.Packet)
+        var envOffset = game.Envelope.CreateEnvelope(
             fbb,
-            Packet.SkillCmd,          // 실제 이름은 Generated/Packet.cs 에서 확인
+            game.Packet.SkillCmd,          // union Packet 안의 SkillCmd
             skillOffset.Value
         );
 
@@ -159,6 +193,57 @@ public class NetworkManager : MonoBehaviour
       //  Debug.Log($"[CL] Recv FieldCmd type={cmd.Type} pid={cmd.EntityId} pos=({cmd.Pos.Value.X}, {cmd.Pos.Value.Y})");
 
         AoiWorld.ApplyFieldCmd(cmd);
+    }
+
+    private void HandleFieldEnvelope(byte[] body)
+    {
+        var bb = new ByteBuffer(body);
+        var env = field.Envelope.GetRootAsEnvelope(bb);
+
+        var pktType = env.PktType;
+
+        switch (pktType)
+        {
+            case field.Packet.FieldCmd:
+                {
+                    var opt = env.Pkt<FieldCmd>();
+                    if (!opt.HasValue)
+                    {
+                        Debug.LogWarning("[Field] FieldCmd union has no value (Pkt<FieldCmd>() is null)");
+                        return;
+                    }
+
+                    var cmd = opt.Value;
+                    AoiWorld.ApplyFieldCmd(cmd);
+                    break;
+                }
+
+            case field.Packet.CombatEvent:
+                {
+                    var opt = env.Pkt<CombatEvent>();
+                    if (!opt.HasValue)
+                    {
+                        Debug.LogWarning("[Field] CombatEvent union has no value (Pkt<CombatEvent>() is null)");
+                        return;
+                    }
+
+                    var ev = opt.Value;
+                    AoiWorld.ApplyCombatEvent(ev);
+                    break;
+                }
+            case field.Packet.AiStateEvent:
+                {
+                    var opt = env.Pkt<AiStateEvent>();
+                    if (!opt.HasValue) return;
+
+                    var ev = opt.Value;
+                    AoiWorld.ApplyAiState(ev);
+                    break;
+                }
+            default:
+                Debug.LogWarning($"[Field] Unknown Packet type={pktType}");
+                break;
+        }
     }
 
 }
