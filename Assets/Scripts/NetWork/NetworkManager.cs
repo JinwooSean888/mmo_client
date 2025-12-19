@@ -234,7 +234,11 @@ public class NetworkManager : MonoBehaviour
             case field.Packet.AiStateEvent:
                 {
                     var opt = env.Pkt<AiStateEvent>();
-                    if (!opt.HasValue) return;
+                    if (!opt.HasValue)
+                    {
+                        Debug.LogWarning("[Field] AiStateEvent union has no value (Pkt<AiStateEvent>() is null)");
+                        return;
+                    }
 
                     var ev = opt.Value;
                     AoiWorld.ApplyAiState(ev);

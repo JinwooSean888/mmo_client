@@ -21,6 +21,9 @@ public static class AoiWorld
     static GameObject _playerTemplate;
     const string DefaultMonsterPrefab = "SingleTwoHandSwordTemplate_1";
 
+    static Dictionary<ulong, float> _lastFaceTime = new Dictionary<ulong, float>();
+    const float FaceCooltime = 0.1f; // 0.1초마다 한 번만 회전 허용
+
     // ================== 템플릿 ==================
     static GameObject GetPlayerTemplate()
     {
@@ -96,50 +99,121 @@ public static class AoiWorld
             _lastMyPos = pos;
         }
     }
+    static void FaceToTarget(GameObject attackerGo, GameObject targetGo)
+    {
+        if (attackerGo == null || targetGo == null)
+            return;
+
+        var from = attackerGo.transform.position;
+        var to = targetGo.transform.position;
+
+        var dir = to - from;
+        dir.y = 0f; // 상하 회전은 무시 (수평만 회전)
+
+        if (dir.sqrMagnitude < 0.0001f)
+            return;
+
+        // 바라봐야 하는 방향
+        var lookRot = Quaternion.LookRotation(dir);
+
+        // Y축만 사용 (기울어지지 않게)
+        var targetRot = Quaternion.Euler(0f, lookRot.eulerAngles.y, 0f);
+
+
+         //targetRot *= Quaternion.Euler(0f, 180f, 0f);
+
+        // 부드럽게 회전하고 싶으면 Slerp 사용
+        var currentRot = attackerGo.transform.rotation;
+        float lerp = 0.35f; // 0.2~0.4 사이로 조절해봐
+        attackerGo.transform.rotation =
+            Quaternion.Slerp(currentRot, targetRot, lerp);
+    }
     public static void ApplyCombatEvent(CombatEvent ev)
     {
+        ulong attackerId = ev.AttackerId;
         ulong targetId = ev.TargetId;
+
+        bool attackerIsMonster = (ev.AttackerType == EntityType.Monster);
         bool targetIsMonster = (ev.TargetType == EntityType.Monster);
 
-        int damage = ev.Damage;
-        int remainHp = ev.RemainHp;
+        GameObject attackerGo = attackerIsMonster
+            ? monsters.GetValueOrDefault(attackerId)
+            : players.GetValueOrDefault(attackerId);
 
-        GameObject targetGo = null;
-        if (targetIsMonster)
-            monsters.TryGetValue(targetId, out targetGo);
-        else
-            players.TryGetValue(targetId, out targetGo);
+        GameObject targetGo = targetIsMonster
+            ? monsters.GetValueOrDefault(targetId)
+            : players.GetValueOrDefault(targetId);
 
-        if (targetGo == null)
+        if (attackerGo == null)
+            return;
+
+        // 1) 타겟이 있으면 방향 맞추고
+        if (targetGo != null)
         {
-            Debug.LogWarning($"[CombatEvent] target not found id={targetId} monster={targetIsMonster}");
+            float now = Time.time;
+            if (!_lastFaceTime.TryGetValue(attackerId, out var lastT) ||
+                now - lastT >= FaceCooltime)
+            {
+                FaceToTarget(attackerGo, targetGo);
+                _lastFaceTime[attackerId] = now;
+            }
+        }
+        else
+        {
+            Debug.LogWarning($"[COMBAT] targetGo null: atk={attackerId}, tgt={targetId}");
+        }
+
+        // 2)  애니는 항상 실행
+        var anim = attackerGo.GetComponentInChildren<Animator>();
+        if (anim != null)
+            anim.SetBool("IsAttacking", true);
+    }
+
+
+    public static void ApplyAiState(AiStateEvent ev)
+    {
+        // 몬스터만 처리
+        if (ev.EntityType != EntityType.Monster)
+            return;
+
+        ulong id = ev.EntityId;
+
+        if (!monsters.TryGetValue(id, out var go) || go == null)
+        {
+            Debug.LogWarning($"[MONSTER][ApplyAiState] monster not found. id={id}");
             return;
         }
 
-        //// HP바 갱신 (네 스크립트 이름에 맞게 바꿔)
-        //var hpBar = targetGo.GetComponentInChildren<HpBarUI>();
-        //if (hpBar != null)
-        //    hpBar.SetHp(remainHp);
+        // field.AiStateType -> MonsterAIState 매핑
+        MonsterAIState st = ConvertState(ev.State);
 
-        //// 피격 이펙트
-        //var hitFx = targetGo.GetComponent<HitEffect>();
-        //if (hitFx != null)
-        //    hitFx.Play();
+        Debug.Log($"[MONSTER][ApplyAiState] id={id}, state={ev.State} => {st}");
 
-        //DamageText.Spawn(
-        //    damage,
-        //    targetGo.transform.position + Vector3.up * 2f
-        //);
-
-        if (remainHp <= 0)
+        // 머리 위 HUD에 반영
+        var hud = go.GetComponentInChildren<MonsterHudUI>();
+        if (hud != null)
         {
-            var anim = targetGo.GetComponentInChildren<Animator>();
-            if (anim != null)
-                anim.SetTrigger("Die");
+            hud.SetAIState(st);
         }
+
+        // 애니메이션
+        var anim = go.GetComponentInChildren<MonsterAnimController>();
+        if (anim != null)
+            anim.ApplyAIState(st);
     }
-    public static void ApplyAiState(AiStateEvent ev)
-    { 
+
+    private static MonsterAIState ConvertState(AiStateType s)
+    {
+        switch (s)
+        {
+            case AiStateType.Idle: return MonsterAIState.Idle;
+            case AiStateType.Patrol: return MonsterAIState.Patrol;
+            case AiStateType.Chase: return MonsterAIState.Chase;
+            case AiStateType.Attack: return MonsterAIState.Attack;
+            case AiStateType.Return: return MonsterAIState.Return;
+            case AiStateType.Dead: return MonsterAIState.Dead;
+            default: return MonsterAIState.Idle;
+        }
     }
     public static void ForceAllMonstersOff(string reason)
     {

@@ -18,12 +18,12 @@ public static class MonsterAIStateText
     {
         switch (st)
         {
-            case MonsterAIState.Idle: return "대기 중";
-            case MonsterAIState.Patrol: return "순찰 중";
-            case MonsterAIState.Chase: return "추적 중!";
-            case MonsterAIState.Attack: return "공격 중!!";
-            case MonsterAIState.Return: return "복귀 중";
-            case MonsterAIState.Dead: return "사망";
+            case MonsterAIState.Idle: return "standing by";
+            case MonsterAIState.Patrol: return "scanning";
+            case MonsterAIState.Chase: return "closing in!";
+            case MonsterAIState.Attack: return "striking!!";
+            case MonsterAIState.Return: return "falling back";
+            case MonsterAIState.Dead: return "down";
             default: return "";
         }
     }
@@ -32,12 +32,12 @@ public static class MonsterAIStateText
     {
         switch (st)
         {
-            case MonsterAIState.Idle: return Color.gray;
-            case MonsterAIState.Patrol: return Color.cyan;
-            case MonsterAIState.Chase: return Color.yellow;
+            case MonsterAIState.Idle: return Color.blue;
+            case MonsterAIState.Patrol: return Color.deepPink;
+            case MonsterAIState.Chase: return Color.blue;
             case MonsterAIState.Attack: return Color.red;
-            case MonsterAIState.Return: return Color.green;
-            case MonsterAIState.Dead: return Color.black;
+            case MonsterAIState.Return: return Color.red;
+            case MonsterAIState.Dead: return Color.red;
             default: return Color.white;
         }
     }
