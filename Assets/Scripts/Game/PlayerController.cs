@@ -13,6 +13,7 @@ public class PlayerController : MonoBehaviour
 
     public float stopTimeout = 0.25f;
     private Camera _cam;
+    public bool IsLocal;
     void Start()
     {
         _lastSentInput = Vector2.zero;
@@ -40,10 +41,12 @@ public class PlayerController : MonoBehaviour
     // 스킬 입력은 PlayerController 와 똑같이 LateUpdate 에서 처리
     void LateUpdate()
     {
+        if (!IsLocal)
+            return;
         if (Input.GetKeyDown(KeyCode.Space))
         {
             var targetId = AoiWorld.FindClosestMonster(transform.position, 2.0f);
-            if (targetId != 0 && NetworkManager.Instance != null && NetworkManager.Instance._inField)
+            if ( NetworkManager.Instance != null && NetworkManager.Instance._inField)
                 NetworkManager.Instance.SendSkillAttack(targetId);
 
             if (_anim != null)
@@ -59,10 +62,12 @@ public class PlayerController : MonoBehaviour
     }
     void Update()
     {
-       if (!CanMove())
+        if (!IsLocal)
+               return;
+        if (!CanMove())
        {
         // 콤보/공격/피격 중 → 방향키, 서버 이동 전송 전부 차단
-        return;
+            return;
         }
         float h = Input.GetAxisRaw("Horizontal");
         float v = Input.GetAxisRaw("Vertical");

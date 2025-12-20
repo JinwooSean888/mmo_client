@@ -16,6 +16,14 @@ public class NetworkSmooth : MonoBehaviour
     bool _inited;
     float _fallVelocity;
     public float gravity = -25f;
+    public bool IsLocal;
+    public float rotLerpSpeed = 15f;
+
+
+    Vector3 _lastXZ;
+    bool _hasLast;
+    Vector3 _targetForward;
+    bool _hasForward;
     float SampleGroundY(Vector3 pos)
     {
         Vector3 origin = pos + Vector3.up * rayStartHeight;
@@ -37,7 +45,7 @@ public class NetworkSmooth : MonoBehaviour
 
     public void SetServerPosition(Vector3 serverPos)
     {
-        // ? 기준은 항상 현재 Transform
+        // 기준은 항상 현재 Transform
         Vector3 basePos = transform.position;
 
         // 서버 권한 XZ
@@ -48,14 +56,37 @@ public class NetworkSmooth : MonoBehaviour
         float groundY = SampleGroundY(basePos);
         basePos.y = groundY + footOffset;
 
+        // --- 방향 계산용 XZ ---
+        Vector3 newXZ = new Vector3(basePos.x, 0f, basePos.z);
+
         if (!_inited)
         {
             _inited = true;
             _targetPos = basePos;
             transform.position = basePos;
             _vel = Vector3.zero;
+
+            _lastXZ = newXZ;
+            _hasLast = true;
             return;
         }
+
+        // ★ 원격 플레이어일 때만, 이동 방향으로 회전 타겟 만들기
+        if (!IsLocal && _hasLast)
+        {
+            Vector3 delta = newXZ - _lastXZ;
+            delta.y = 0f;
+
+            if (delta.sqrMagnitude > 0.0001f)
+            {
+                delta.Normalize();
+                _targetForward = delta;
+                _hasForward = true;
+            }
+        }
+
+        _lastXZ = newXZ;
+        _hasLast = true;
 
         _targetPos = basePos;
 
@@ -69,29 +100,30 @@ public class NetworkSmooth : MonoBehaviour
             _vel = Vector3.zero;
         }
     }
+
     void LateUpdate()
     {
-        if (!_inited) return;
+        if (!_inited)
+            return;
 
-        Vector3 pos = transform.position;
-
-        // XZ만 부드럽게
-        Vector3 smoothXZ = Vector3.SmoothDamp(
-            new Vector3(pos.x, 0, pos.z),
-            new Vector3(_targetPos.x, 0, _targetPos.z),
+        // 위치 보간
+        transform.position = Vector3.SmoothDamp(
+            transform.position,
+            _targetPos,
             ref _vel,
             smoothTime
         );
 
-        // Y는 절대 보간하지 말고 고정
-        transform.position = new Vector3(
-            smoothXZ.x,
-            _targetPos.y,
-            smoothXZ.z
-        );
+        // 방향 보간 (원격 전용)
+        if (!IsLocal && _hasForward)
+        {
+            var targetRot = Quaternion.LookRotation(_targetForward, Vector3.up);
+            transform.rotation = Quaternion.Slerp(
+                transform.rotation,
+                targetRot,
+                rotLerpSpeed * Time.deltaTime
+            );
+        }
     }
-
-
-
 
 }

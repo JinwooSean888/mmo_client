@@ -34,7 +34,7 @@ public class MonsterAnimController : MonoBehaviour
                 break;
 
             case MonsterAIState.Patrol:
-            case MonsterAIState.Chase:
+            case MonsterAIState.Move:
             
                 _anim.SetFloat(_hashSpeed, 1f);
                 _anim.SetBool(_hashAttackBool, false);  // 여기서도 항상 OFF

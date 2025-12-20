@@ -172,35 +172,71 @@ public static class AoiWorld
 
     public static void ApplyAiState(AiStateEvent ev)
     {
-        // 몬스터만 처리
-        if (ev.EntityType != EntityType.Monster)
-            return;
-
         ulong id = ev.EntityId;
+        bool isMonster = (ev.EntityType == EntityType.Monster);
+        var netState = ev.State;   // field.AiStateType
 
-        if (!monsters.TryGetValue(id, out var go) || go == null)
+        if (isMonster)
         {
-            Debug.LogWarning($"[MONSTER][ApplyAiState] monster not found. id={id}");
+            // ===== 몬스터 처리 (기존 그대로) =====
+            if (!monsters.TryGetValue(id, out var go) || go == null)
+            {
+                Debug.LogWarning($"[MONSTER][ApplyAiState] monster not found. id={id}");
+                return;
+            }
+
+            // field.AiStateType -> MonsterAIState 매핑
+            MonsterAIState st = ConvertState(netState);
+
+            Debug.Log($"[MONSTER][ApplyAiState] id={id}, state={netState} => {st}");
+
+            // 머리 위 HUD
+            var hud = go.GetComponentInChildren<MonsterHudUI>();
+            if (hud != null)
+                hud.SetAIState(st);
+
+            // 애니메이션
+            var anim = go.GetComponentInChildren<MonsterAnimController>();
+            if (anim != null)
+                anim.ApplyAIState(st);
+
             return;
         }
 
-        // field.AiStateType -> MonsterAIState 매핑
-        MonsterAIState st = ConvertState(ev.State);
-
-        Debug.Log($"[MONSTER][ApplyAiState] id={id}, state={ev.State} => {st}");
-
-        // 머리 위 HUD에 반영
-        var hud = go.GetComponentInChildren<MonsterHudUI>();
-        if (hud != null)
+        // ====== 여기부터 플레이어 처리 ======
+        if (!players.TryGetValue(id, out var pgo) || pgo == null)
         {
-            hud.SetAIState(st);
+            Debug.LogWarning($"[PLAYER][ApplyAiState] player not found. id={id}");
+            return;
         }
 
-        // 애니메이션
-        var anim = go.GetComponentInChildren<MonsterAnimController>();
-        if (anim != null)
-            anim.ApplyAIState(st);
+        Debug.Log($"[PLAYER][ApplyAiState] id={id}, state={netState}");
+
+        // 1) 애니메이션 컨트롤러에 전달
+        var pAnim = pgo.GetComponentInChildren<PlayerAnimController>();
+        if (pAnim != null)
+        {
+            // PlayerAnimController에서 field.AiStateType 그대로 받게 해도 되고,
+            // 필요하면 내부에서 AiStateType -> 자체 enum 매핑
+            pAnim.ApplyNetworkState(netState);
+        }
+
+        // 2) 로컬 플레이어 이동 플래그까지 서버 상태로 맞추고 싶다면:
+        if (id == MyPlayerId)
+        {
+            var pc = pgo.GetComponent<PlayerController>();
+            if (pc != null)
+            {
+                bool moving =
+                    netState == AiStateType.Patrol ||
+                    netState == AiStateType.Move ||
+                    netState == AiStateType.Return;
+
+                pc.SetServerMoving(moving);
+            }
+        }
     }
+
 
     private static MonsterAIState ConvertState(AiStateType s)
     {
@@ -208,7 +244,7 @@ public static class AoiWorld
         {
             case AiStateType.Idle: return MonsterAIState.Idle;
             case AiStateType.Patrol: return MonsterAIState.Patrol;
-            case AiStateType.Chase: return MonsterAIState.Chase;
+            case AiStateType.Move: return MonsterAIState.Move;
             case AiStateType.Attack: return MonsterAIState.Attack;
             case AiStateType.Return: return MonsterAIState.Return;
             case AiStateType.Dead: return MonsterAIState.Dead;
@@ -255,6 +291,8 @@ public static class AoiWorld
     // ================== Enter ==================
     static void OnEnter(ulong id, Vector3 pos, bool isMonster, string prefabName)
     {
+
+        Debug.Log($"[OnEnter] my={AoiWorld.MyPlayerId} enterId={id} isMonster={isMonster} pos={pos}");
         if (isMonster)
         {
             // prefabName은 항상 캐시
@@ -315,10 +353,12 @@ public static class AoiWorld
         inst.name = $"Player_{id}";
 
         var ns = inst.GetComponent<NetworkSmooth>() ?? inst.AddComponent<NetworkSmooth>();
+        ns.IsLocal = (id == AoiWorld.MyPlayerId);
         ns.SetServerPosition(pos);
 
-        // ✅여기부터 추가
-        if (id == MyPlayerId)
+        bool isSelf = (AoiWorld.MyPlayerId != 0 && id == AoiWorld.MyPlayerId);
+
+        if (isSelf)
         {
             // 기존 LocalPlayer 태그 정리 (중복 방지)
             var olds = GameObject.FindGameObjectsWithTag("LocalPlayer");
@@ -339,12 +379,19 @@ public static class AoiWorld
         }
         else
         {
-            inst.SetActive(false); // 비활성화
+            //inst.SetActive(false); // 비활성화
             inst.tag = "Untagged";
-        }
-        // ✅ 여기까지
+        }        
 
         players[id] = inst;
+
+
+
+        var ctrl = inst.GetComponent<PlayerController>();
+        if (ctrl != null)
+        {
+            ctrl.IsLocal = isSelf;
+        }
     }
 
 
@@ -353,7 +400,7 @@ public static class AoiWorld
     {
         if (isMonster)
         {
-            // 🔥 AOI 밖이거나 꺼진 몬스터는 절대 이동 반영 X
+            // AOI 밖이거나 꺼진 몬스터는 절대 이동 반영 X
             if (!monsters.TryGetValue(id, out var m) || m == null || !m.activeSelf)
             {
                 pendingMonsterPos[id] = pos; // 좌표만 저장

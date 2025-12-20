@@ -6,7 +6,7 @@ public enum MonsterAIState
 {
     Idle = 0,
     Patrol = 1,
-    Chase = 2,
+    Move = 2,
     Attack = 3,
     Return = 4,
     Dead = 5,
@@ -20,7 +20,7 @@ public static class MonsterAIStateText
         {
             case MonsterAIState.Idle: return "standing by";
             case MonsterAIState.Patrol: return "scanning";
-            case MonsterAIState.Chase: return "closing in!";
+            case MonsterAIState.Move: return "closing in!";
             case MonsterAIState.Attack: return "striking!!";
             case MonsterAIState.Return: return "falling back";
             case MonsterAIState.Dead: return "down";
@@ -34,7 +34,7 @@ public static class MonsterAIStateText
         {
             case MonsterAIState.Idle: return Color.blue;
             case MonsterAIState.Patrol: return Color.deepPink;
-            case MonsterAIState.Chase: return Color.blue;
+            case MonsterAIState.Move: return Color.blue;
             case MonsterAIState.Attack: return Color.red;
             case MonsterAIState.Return: return Color.red;
             case MonsterAIState.Dead: return Color.red;

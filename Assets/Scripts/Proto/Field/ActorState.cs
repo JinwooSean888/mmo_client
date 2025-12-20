@@ -5,14 +5,13 @@
 namespace field
 {
 
-public enum AiStateType : sbyte
+public enum ActorState : sbyte
 {
   Idle = 0,
-  Patrol = 1,
-  Move = 2,
-  Attack = 3,
-  Return = 4,
-  Dead = 5,
+  Move = 1,
+  Attack = 2,
+  Cast = 3,
+  Dead = 4,
 };
 
 

@@ -15,7 +15,7 @@ public class NetworkManager : MonoBehaviour
     public string userId = "test_user";
     public string token = "dummy_token";
     public uint fieldId = 1000;   // 입장할 필드 ID
-    public ulong myPlayerId = 1;   // 서버에서 할당해 줄 수도 있음 (이거 안씀)
+    
     public bool _inField = false;
 
     private NetworkClient _client = new NetworkClient();
@@ -78,7 +78,7 @@ public class NetworkManager : MonoBehaviour
     {
         if (!_inField) return;
 
-        var payload = FieldCmdPacketBuilder.BuildMoveInput(myPlayerId, pos2D.x, pos2D.y);
+        var payload = FieldCmdPacketBuilder.BuildMoveInput(AoiWorld.MyPlayerId, pos2D.x, pos2D.y);
         _client.SendPayload(payload);
     }
 
@@ -101,7 +101,7 @@ public class NetworkManager : MonoBehaviour
 
                     if (ack.Ok)
                     {
-                        myPlayerId = ack.PlayerId;
+                        AoiWorld.MyPlayerId = ack.PlayerId;
                         fieldId = (uint)ack.DefaultFieldId;
 
                         Debug.Log("SendEnterField()");
@@ -113,9 +113,9 @@ public class NetworkManager : MonoBehaviour
             case game.Packet.EnterFieldAck:
                 {
                     var enterAck = env.Pkt<game.EnterFieldAck>().Value;
-                    AoiWorld.MyPlayerId = enterAck.PlayerId;
+                    Debug.Log($"[EnterFieldAck] MyPlayerId={enterAck.PlayerId}, local={AoiWorld.MyPlayerId}");
                     AoiWorld.ForceAllMonstersOff("enterfield");
-                    Debug.Log($"[EnterFieldAck] MyPlayerId = {AoiWorld.MyPlayerId}");
+                    
                     UIManager.Instance.HideLoginUI();
                     _inField = true;            // 여기서 ON
                     break;
