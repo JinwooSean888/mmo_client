@@ -25,6 +25,7 @@ public struct Envelope : IFlatbufferObject
   public field.FieldCmd PktAsFieldCmd() { return Pkt<field.FieldCmd>().Value; }
   public field.CombatEvent PktAsCombatEvent() { return Pkt<field.CombatEvent>().Value; }
   public field.AiStateEvent PktAsAiStateEvent() { return Pkt<field.AiStateEvent>().Value; }
+  public field.StatEvent PktAsStatEvent() { return Pkt<field.StatEvent>().Value; }
 
   public static Offset<field.Envelope> CreateEnvelope(FlatBufferBuilder builder,
       field.Packet pkt_type = field.Packet.NONE,

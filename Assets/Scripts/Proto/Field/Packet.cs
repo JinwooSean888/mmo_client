@@ -11,6 +11,7 @@ public enum Packet : byte
   FieldCmd = 1,
   CombatEvent = 2,
   AiStateEvent = 3,
+  StatEvent = 4,
 };
 
 
@@ -30,6 +31,9 @@ static public class PacketVerify
         break;
       case Packet.AiStateEvent:
         result = field.AiStateEventVerify.Verify(verifier, tablePos);
+        break;
+      case Packet.StatEvent:
+        result = field.StatEventVerify.Verify(verifier, tablePos);
         break;
       default: result = true;
         break;
