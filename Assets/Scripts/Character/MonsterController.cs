@@ -22,7 +22,7 @@ public class MonsterController : MonoBehaviour
     public bool HasTarget;
 
     [Header("Anim")]
-    public string speedParam = "Speed";   // Animator Float 파라미터 이름
+    public string speedParam = "MonSpeed";   // Animator Float 파라미터 이름
     public float speedScale = 1.0f;       // v(m/s) -> 애니 Speed 스케일
     public float movingEps = 0.01f;       // 너무 작은 떨림 제거
 

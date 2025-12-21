@@ -10,6 +10,7 @@ public enum MonsterAIState
     Attack = 3,
     Return = 4,
     Dead = 5,
+    Chase = 6,
 }
 
 public static class MonsterAIStateText

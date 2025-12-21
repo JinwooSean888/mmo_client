@@ -198,7 +198,10 @@ public static class AoiWorld
             // 애니메이션
             var anim = go.GetComponentInChildren<MonsterAnimController>();
             if (anim != null)
+            {
+                Debug.Log($"[AI] Monster {st} state={st}");
                 anim.ApplyAIState(st);
+            }
 
             return;
         }
