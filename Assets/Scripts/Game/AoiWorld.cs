@@ -1,6 +1,7 @@
-﻿using System.Collections.Generic;
+﻿using field;
+using System.Collections.Generic;
 using UnityEngine;
-using field;
+using UnityEngine.InputSystem.LowLevel;
 
 public static class AoiWorld
 {
@@ -484,6 +485,73 @@ public static class AoiWorld
         }
 
         return bestId;
+    }
+    public static void ApplyStatsEvent(StatEvent ev)
+    {
+        ulong id = ev.EntityId;
+        bool isMonster = (ev.EntityType == EntityType.Monster);
+
+        int hp = ev.Hp;
+        int maxHp = ev.MaxHp;
+        int sp = ev.Sp;
+        int maxSp = ev.MaxSp;
+
+        Debug.Log($"[NET][STAT] id={id}, hp={hp}/{maxHp}, sp={sp}/{maxSp}, isMonster={isMonster}");
+
+        if (isMonster)
+        {
+            if (!monsters.TryGetValue(id, out var go) || go == null)
+            {
+                Debug.LogWarning($"[MONSTER][ApplyStatsEvent] monster not found. id={id}");
+                return;
+            }
+
+            // 1) 몬스터 컨트롤러에 먼저 전달
+            var mc = go.GetComponent<MonsterController>();
+            if (mc != null)
+            {
+                mc.ApplyServerStats(hp, maxHp, sp, maxSp);
+            }
+
+            // 2) HUD는 확실히 한 번 더 직접 갱신
+            var hud = go.GetComponentInChildren<MonsterHudUI>();
+            if (hud != null)
+            {
+                hud.ApplyStats(hp, maxHp, sp, maxSp);
+            }
+
+            return;
+        }
+
+        // ===== 플레이어 처리 =====
+        //if (!players.TryGetValue(id, out var pgo) || pgo == null)
+        //{
+        //    Debug.LogWarning($"[PLAYER][ApplyStatsEvent] player not found. id={id}");
+        //    return;
+        //}
+
+        //var pStatSync = pgo.GetComponent<PlayerStatSync>();
+        //if (pStatSync != null)
+        //{
+        //    pStatSync.ApplyServerStats(hp, maxHp, sp, maxSp);
+        //}
+        //else
+        //{
+        //    var hud = pgo.GetComponentInChildren<PlayerHudUI>();
+        //    if (hud != null)
+        //    {
+        //        hud.SetMaxStats(maxHp, maxSp);
+        //        hud.SetHpSp(hp, sp);
+        //    }
+        //}
+
+        //// 필요하면 로컬 플레이어 추가 처리
+        //if (id == MyPlayerId)
+        //{
+        //    // 로컬 클라 쪽 HP Bar, 기타 UI에 다시 반영하고 싶으면 여기서
+        //    // var extra = pgo.GetComponent<LocalPlayerExtraUI>();
+
+        //}
     }
 
 }

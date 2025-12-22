@@ -54,19 +54,17 @@ public class MonsterHudUI : MonoBehaviour
     int _maxHp = 1;
     int _maxSp = 1;
 
-    public void SetMaxStats(int maxHp, int maxSp)
+    public void ApplyStats(int hp, int maxHp, int sp, int maxSp)
     {
         _maxHp = Mathf.Max(1, maxHp);
         _maxSp = Mathf.Max(1, maxSp);
-    }
 
-    public void SetHpSp(int hp, int sp)
-    {
         if (hpFill != null)
         {
             float t = Mathf.Clamp01((float)hp / _maxHp);
             hpFill.fillAmount = t;
         }
+
         if (spFill != null)
         {
             float t = Mathf.Clamp01((float)sp / _maxSp);

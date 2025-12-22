@@ -244,6 +244,19 @@ public class NetworkManager : MonoBehaviour
                     AoiWorld.ApplyAiState(ev);
                     break;
                 }
+            case field.Packet.StatEvent:
+                {
+                    var opt = env.Pkt<StatEvent>();
+                    if (!opt.HasValue)
+                    {
+                        Debug.LogWarning("[Field] StatEvent union has no value (Pkt<StatEvent>() is null)");
+                        return;
+                    }
+
+                    var ev = opt.Value;
+                    AoiWorld.ApplyStatsEvent(ev);
+                    break;
+                }
             default:
                 Debug.LogWarning($"[Field] Unknown Packet type={pktType}");
                 break;

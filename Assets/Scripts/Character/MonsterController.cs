@@ -26,7 +26,6 @@ public class MonsterController : MonoBehaviour
     public float speedScale = 1.0f;       // v(m/s) -> 애니 Speed 스케일
     public float movingEps = 0.01f;       // 너무 작은 떨림 제거
 
-    private Animator _anim;
 
     [Header("Rotate")]
     public bool rotateToMoveDir = true;
@@ -41,6 +40,7 @@ public class MonsterController : MonoBehaviour
     public int MaxSp { get; private set; }
     public MonsterAIState AiState { get; private set; }
 
+    private Animator _anim;
     MonsterHudUI _hud;
     void Awake()
     {
@@ -96,7 +96,7 @@ public class MonsterController : MonoBehaviour
             );
         }
 
-        // ★ 애니 Speed 계산 (m/s)
+        // 애니 Speed 계산 (m/s)
         float v = deltaXZ.magnitude / Mathf.Max(dt, 0.0001f);
         float animSpeed = (v > movingEps) ? (v * speedScale) : 0f;
         if (_anim) _anim.SetFloat(speedParam, animSpeed);
@@ -158,33 +158,18 @@ public class MonsterController : MonoBehaviour
     }
 
     // 서버에서 몬스터 상태 패킷 들어왔을 때 호출
-    public void ApplyServerState(int hp, int maxHp, int sp, int maxSp, MonsterAIState state)
+    public void ApplyServerStats(int hp, int maxHp, int sp, int maxSp)
     {
         Hp = hp;
         MaxHp = maxHp;
         Sp = sp;
         MaxSp = maxSp;
-        AiState = state;
+        
 
         if (_hud != null)
         {
-            _hud.SetMaxStats(MaxHp, MaxSp);
-            _hud.SetHpSp(Hp, Sp);
-            _hud.SetAIState(AiState);
+            _hud.ApplyStats(hp, maxHp, sp, maxSp);
         }
     }
-    // 상태패킷 처리
-    //void OnRecvMonsterState(S_MonsterState msg)
-    //{
-    //    // id → MonsterController 찾는 딕셔너리 있다고 가정
-    //    if (_monsters.TryGetValue(msg.Id, out var monster))
-    //    {
-    //        monster.ApplyServerState(
-    //            msg.Hp, msg.MaxHp,
-    //            msg.Sp, msg.MaxSp,
-    //            (MonsterAIState)msg.AiState
-    //        );
-    //    }
-    //}
-
+  
 }
