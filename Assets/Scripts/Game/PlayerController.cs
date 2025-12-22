@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.UI;
 
 public class PlayerController : MonoBehaviour
 {
@@ -8,12 +9,19 @@ public class PlayerController : MonoBehaviour
     private float _lastSendTime;
 
     private Animator _anim;
+    PlayerHudUI _hud;
     private bool _isMovingServer;
     private float _lastServerMoveTime;
 
     public float stopTimeout = 0.25f;
     private Camera _cam;
     public bool IsLocal;
+
+    [Header("PlayerState")]
+    public int Hp { get; private set; }
+    public int MaxHp { get; private set; }
+    public int Sp { get; private set; }
+    public int MaxSp { get; private set; }    
     void Start()
     {
         _lastSentInput = Vector2.zero;
@@ -22,6 +30,7 @@ public class PlayerController : MonoBehaviour
         _anim = GetComponentInChildren<Animator>(); // 자식 본에 있어도 찾도록
         Debug.Log($"[ANIM] obj={_anim.gameObject.name}, root={_anim.transform.root.name}, controller={_anim.runtimeAnimatorController?.name}");
         _cam = Camera.main;
+        _hud = GetComponentInChildren<PlayerHudUI>();
     }
     public void SetCamera(Camera cam)
     {
@@ -36,7 +45,19 @@ public class PlayerController : MonoBehaviour
         _isMovingServer = moving;
         // Debug.Log($"[PAL] SetServerMoving: {moving}");
     }
+    public void ApplyServerStats(int hp, int maxHp, int sp, int maxSp)
+    {
+        Hp = hp;
+        MaxHp = maxHp;
+        Sp = sp;
+        MaxSp = maxSp;
 
+
+        if (_hud != null)
+        {
+            _hud.ApplyStats(hp, maxHp, sp, maxSp);
+        }
+    }
 
     // 스킬 입력은 PlayerController 와 똑같이 LateUpdate 에서 처리
     void LateUpdate()

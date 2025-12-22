@@ -19,6 +19,7 @@ public class MonsterAnimController : MonoBehaviour
         _hashAttackBool = Animator.StringToHash("IsAttacking");  // bool
         _hashAttackTrigger = Animator.StringToHash("DoAttack");     // trigger (Animator에 추가 필요)
         _hashDead = Animator.StringToHash("Dead");         // trigger
+
     }
 
     public void ApplyAIState(MonsterAIState st)
@@ -83,4 +84,5 @@ public class MonsterAnimController : MonoBehaviour
         _anim.SetFloat(_hashSpeed, 0f);
         _anim.SetBool(_hashAttackBool, false);
     }
+
 }

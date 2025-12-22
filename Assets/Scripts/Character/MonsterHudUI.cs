@@ -51,8 +51,8 @@ public class MonsterHudUI : MonoBehaviour
     public Image hpFill;
     public Image spFill;
 
-    int _maxHp = 1;
-    int _maxSp = 1;
+    int _maxHp = 50;
+    int _maxSp = 50;
 
     public void ApplyStats(int hp, int maxHp, int sp, int maxSp)
     {
