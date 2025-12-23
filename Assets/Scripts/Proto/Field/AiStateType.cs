@@ -9,7 +9,7 @@ public enum AiStateType : sbyte
 {
   Idle = 0,
   Patrol = 1,
-  Move = 2,
+  Chase = 2,
   Attack = 3,
   Return = 4,
   Dead = 5,

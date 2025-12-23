@@ -234,7 +234,7 @@ public static class AoiWorld
             {
                 bool moving =
                     netState == AiStateType.Patrol ||
-                    netState == AiStateType.Move ||
+                    netState == AiStateType.Chase ||
                     netState == AiStateType.Return;
 
                 pc.SetServerMoving(moving);
@@ -249,7 +249,7 @@ public static class AoiWorld
         {
             case AiStateType.Idle: return MonsterAIState.Idle;
             case AiStateType.Patrol: return MonsterAIState.Patrol;
-            case AiStateType.Move: return MonsterAIState.Move;
+            case AiStateType.Chase: return MonsterAIState.Chase;
             case AiStateType.Attack: return MonsterAIState.Attack;
             case AiStateType.Return: return MonsterAIState.Return;
             case AiStateType.Dead: return MonsterAIState.Dead;

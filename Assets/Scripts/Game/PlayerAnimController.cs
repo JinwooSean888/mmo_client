@@ -28,7 +28,7 @@ public class PlayerAnimController : MonoBehaviour
                 break;
 
             case AiStateType.Patrol:
-            case AiStateType.Move:
+            case AiStateType.Chase:
             case AiStateType.Return:
                 _anim.SetFloat(_hashSpeed, 1f);
                 _anim.SetBool(_hashAttack, false);

@@ -36,7 +36,7 @@ public class MonsterAnimController : MonoBehaviour
         // 1) 이동 여부 -> MonSpeed
         // -------------------------
         bool isMove =
-            st == MonsterAIState.Move ||
+            st == MonsterAIState.Chase ||
             st == MonsterAIState.Patrol ||
             st == MonsterAIState.Return ||
             st == MonsterAIState.Chase;
